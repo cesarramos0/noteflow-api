@@ -1,36 +1,214 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NoteFlow API
 
-## Getting Started
+API REST para la app móvil NoteFlow. Construida con Next.js App Router, PostgreSQL (Neon) y autenticación JWT.
 
-First, run the development server:
+## Setup
 
 ```bash
+npm install
+cp .env.example .env.local
+# Editar .env.local con tus credenciales
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Variables de entorno
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Descripción |
+|----------|-------------|
+| `DATABASE_URL` | Connection string de PostgreSQL (Neon) |
+| `JWT_SECRET` | Secreto para firmar tokens JWT (mínimo 32 caracteres) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Base de datos
 
-## Learn More
+Ejecuta el script en la consola SQL de Neon:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Pega el contenido de sql/schema.sql en la consola de Neon
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Endpoints
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Auth
 
-## Deploy on Vercel
+#### `POST /api/auth/register`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Registra un nuevo usuario.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Body:**
+```json
+{ "email": "user@example.com", "password": "minimo8chars" }
+```
+
+**Respuesta 201:**
+```json
+{ "user": { "id": "uuid", "email": "...", "created_at": "..." }, "token": "eyJ..." }
+```
+
+---
+
+#### `POST /api/auth/login`
+
+Autentica un usuario y devuelve un token JWT.
+
+**Body:**
+```json
+{ "email": "user@example.com", "password": "minimo8chars" }
+```
+
+**Respuesta 200:**
+```json
+{ "user": { "id": "uuid", "email": "..." }, "token": "eyJ..." }
+```
+
+---
+
+### Notas
+
+Todos los endpoints de notas requieren el header:
+```
+Authorization: Bearer <token>
+```
+
+---
+
+#### `GET /api/notes`
+
+Devuelve todas las notas del usuario autenticado con sus items y tags.
+
+**Respuesta 200:**
+```json
+[
+  {
+    "id": "uuid",
+    "title": "Mi nota",
+    "content": "...",
+    "type": "note",
+    "color": "#ffffff",
+    "created_at": "...",
+    "updated_at": "...",
+    "items": null,
+    "tags": ["trabajo", "personal"]
+  }
+]
+```
+
+---
+
+#### `POST /api/notes`
+
+Crea una nueva nota.
+
+**Body:**
+```json
+{
+  "title": "Mi nota",
+  "type": "note",
+  "content": "Contenido opcional",
+  "color": "#ffffff"
+}
+```
+
+**Validación:**
+- `title`: mínimo 3 caracteres
+- `type`: debe ser `note`, `checklist` o `idea`
+
+**Respuesta 201:** la nota creada.
+
+---
+
+#### `GET /api/notes/:id`
+
+Devuelve una nota por ID con sus items y tags.
+
+**Respuesta 200:** la nota. **404** si no existe o no pertenece al usuario.
+
+---
+
+#### `PATCH /api/notes/:id`
+
+Actualiza campos de una nota. Solo se actualizan los campos enviados.
+
+**Body (todos opcionales):**
+```json
+{
+  "title": "Nuevo título",
+  "content": "Nuevo contenido",
+  "type": "idea",
+  "color": "#ff0000"
+}
+```
+
+**Respuesta 200:** la nota actualizada.
+
+---
+
+#### `DELETE /api/notes/:id`
+
+Elimina una nota y en cascada sus checklist items y tags.
+
+**Respuesta 204:** sin body.
+
+---
+
+### Checklist Items
+
+#### `GET /api/notes/:id/checklist-items`
+
+Devuelve los items de una nota de tipo checklist.
+
+**Respuesta 200:**
+```json
+[{ "id": "uuid", "note_id": "uuid", "text": "Tarea", "is_completed": false }]
+```
+
+---
+
+#### `POST /api/notes/:id/checklist-items`
+
+Agrega un item a una nota.
+
+**Body:**
+```json
+{ "text": "Nueva tarea" }
+```
+
+**Respuesta 201:** el item creado.
+
+---
+
+#### `PATCH /api/checklist-items/:itemId`
+
+Actualiza un item (marcar/desmarcar, editar texto).
+
+**Body (opcionales):**
+```json
+{ "is_completed": true, "text": "Texto actualizado" }
+```
+
+**Respuesta 200:** el item actualizado.
+
+---
+
+#### `DELETE /api/checklist-items/:itemId`
+
+Elimina un item.
+
+**Respuesta 204:** sin body.
+
+---
+
+## Despliegue en Vercel
+
+1. Conecta el repositorio en [vercel.com](https://vercel.com)
+2. En Settings → Environment Variables, agrega:
+   - `DATABASE_URL` → tu connection string de Neon
+   - `JWT_SECRET` → un string aleatorio seguro (ej: `openssl rand -base64 32`)
+3. Deploy automático en cada push a `main`
+
+## Tecnologías
+
+- **Next.js 15** — App Router, Route Handlers
+- **@neondatabase/serverless** — Cliente PostgreSQL optimizado para edge/serverless
+- **Zod** — Validación de esquemas
+- **bcryptjs** — Hash de contraseñas
+- **jsonwebtoken** — Tokens JWT
