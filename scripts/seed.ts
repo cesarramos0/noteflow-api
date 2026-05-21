@@ -48,7 +48,7 @@ const CHECKLIST_ITEMS = [
 const TYPES = ['note', 'checklist', 'idea'] as const;
 const COLORS = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd', '#98d8c8', null, null, null];
 
-function random<T>(arr: T[]): T {
+function random<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
