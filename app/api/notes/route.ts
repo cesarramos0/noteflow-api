@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '10'), 50);
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '20'), 50);
   const offset = parseInt(searchParams.get('offset') ?? '0');
 
   try {
