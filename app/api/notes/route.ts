@@ -15,6 +15,10 @@ export async function GET(req: NextRequest) {
   const user = getUserFromRequest(req);
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+  const { searchParams } = new URL(req.url);
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '10'), 50);
+  const offset = parseInt(searchParams.get('offset') ?? '0');
+
   try {
     const notes = await query<Note>(
       `SELECT
@@ -28,10 +32,21 @@ export async function GET(req: NextRequest) {
       LEFT JOIN note_tags nt ON n.id = nt.note_id
       WHERE n.user_id = $1
       GROUP BY n.id
-      ORDER BY n.created_at DESC`,
+      ORDER BY n.created_at DESC
+      LIMIT $2 OFFSET $3`,
+      [user.userId, limit, offset]
+    );
+
+    const [{ count }] = await query<{ count: string }>(
+      'SELECT COUNT(*) as count FROM notes WHERE user_id = $1',
       [user.userId]
     );
-    return NextResponse.json(notes);
+
+    return NextResponse.json({
+      notes,
+      total: parseInt(count),
+      hasMore: offset + limit < parseInt(count),
+    });
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
